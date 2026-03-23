@@ -41,14 +41,14 @@ app.add_middleware(
     allowed_hosts=["*"]
 )
 
-app.include_router(auth.router, prefix="/api/auth")
-app.include_router(users.router, prefix="/api/users")
-app.include_router(stations.router, prefix="/api/stations")
-app.include_router(bookings.router, prefix="/api/bookings")
-app.include_router(sessions.router, prefix="/api/sessions")
-app.include_router(billing.router, prefix="/api/billing")
-app.include_router(content.router, prefix="/api/content")
-app.include_router(admin.router, prefix="/api/admin")
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(stations.router)
+app.include_router(bookings.router)
+app.include_router(sessions.router)
+app.include_router(billing.router)
+app.include_router(content.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def root():
