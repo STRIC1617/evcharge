@@ -117,20 +117,39 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/vehicles")
-async def add_vehicle(request: VehicleRequest, current_user: dict = Depends(get_current_user)):
+async def add_vehicle(req: VehicleCreateRequest, current_user: dict = Depends(get_current_user)):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Insert
         row = await conn.fetchrow(
-            '''INSERT INTO vehicles (user_id, make, model, year, battery_capacity_kwh, license_plate)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING *''',
-            current_user["id"], request.make, request.model, request.year,
-            request.battery_capacity_kwh, request.connector_type, request.license_plate
+            """
+            INSERT INTO vehicles (user_id, make, model, year, battery_capacity_kwh, connector_type, license_plate, is_default)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *
+            """,
+            current_user["id"],
+            req.make,
+            req.model,
+            req.year,
+            req.battery_capacity_kwh,
+            req.connector_type,
+            req.license_plate,
+            bool(req.is_default),
         )
-        return dict(row)
+        vehicle = dict(row)
 
+        if req.is_default:
+            await _set_default_vehicle(conn, current_user["id"], vehicle["id"])
+            # re-fetch to return updated state
+            vehicle = dict(await conn.fetchrow("SELECT * FROM vehicles WHERE id = $1", vehicle["id"]))
+
+        return vehicle
 @router.get("/vehicles")
-async def get_vehicles(current_user: dict = Depends(get_current_user)):
+async def list_vehicles(current_user: dict = Depends(get_current_user)):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch('SELECT * FROM vehicles WHERE user_id = $1', current_user["id"])
-        return [dict(row) for row in rows]
+        rows = await conn.fetch(
+            "SELECT * FROM vehicles WHERE user_id = $1 ORDER BY is_default DESC, created_at DESC",
+            current_user["id"],
+        )
+        return [dict(r) for r in rows]
