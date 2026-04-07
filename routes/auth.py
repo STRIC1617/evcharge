@@ -121,8 +121,8 @@ async def add_vehicle(request: VehicleRequest, current_user: dict = Depends(get_
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            '''INSERT INTO vehicles (user_id, make, model, year, battery_capacity_kwh, connector_type, license_plate)
-               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *''',
+            '''INSERT INTO vehicles (user_id, make, model, year, battery_capacity_kwh, license_plate)
+               VALUES ($1, $2, $3, $4, $5, $6) RETURNING *''',
             current_user["id"], request.make, request.model, request.year,
             request.battery_capacity_kwh, request.connector_type, request.license_plate
         )
