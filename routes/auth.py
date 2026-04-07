@@ -113,3 +113,24 @@ async def logout(request: LogoutRequest, current_user: dict = Depends(get_curren
 @router.get("/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+
+
+@router.post("/vehicles")
+async def add_vehicle(request: VehicleRequest, current_user: dict = Depends(get_current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            '''INSERT INTO vehicles (user_id, make, model, year, battery_capacity_kwh, connector_type, license_plate)
+               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *''',
+            current_user["id"], request.make, request.model, request.year,
+            request.battery_capacity_kwh, request.connector_type, request.license_plate
+        )
+        return dict(row)
+
+@router.get("/vehicles")
+async def get_vehicles(current_user: dict = Depends(get_current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch('SELECT * FROM vehicles WHERE user_id = $1', current_user["id"])
+        return [dict(row) for row in rows]
