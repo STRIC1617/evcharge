@@ -1,27 +1,33 @@
-# import os
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from dotenv import load_dotenv
 
 from config.database import init_database, close_pool
 from routes import auth, users, stations, bookings, sessions, billing, content, admin
-
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_database()
+    try:
+        await init_database()
+    except Exception as exc:
+        logger.exception("Database initialization failed during startup: %s", exc)
     yield
-    await close_pool()
+    try:
+        await close_pool()
+    except Exception as exc:
+        logger.exception("Database shutdown failed: %s", exc)
 
 app = FastAPI(title="Charge Connect API", lifespan=lifespan, redirect_slashes=False)
 

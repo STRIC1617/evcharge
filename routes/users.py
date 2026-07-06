@@ -44,10 +44,12 @@ async def update_profile(req: ProfileUpdateRequest, current_user: dict = Depends
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            UPDATE users
-            SET name = COALESCE($1, name), phone = COALESCE($2, phone), updated_at = NOW()
+             UPDATE users
+            SET name = COALESCE($1, name),
+                phone = COALESCE($2, phone),
+                updated_at = NOW()
             WHERE id = $3
-            RETURNING id, email, name, phone, role, created_at, updated_at
+            RETURNING id, email, name, phone, role, auth_provider, google_sub, created_at, updated_at
             """,
             req.name,
             req.phone,

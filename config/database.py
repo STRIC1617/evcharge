@@ -1,10 +1,12 @@
 import os
 import asyncpg
+# from dotenv import load_dotenv
 
 import logging
 logger = logging.getLogger(__name__)
 logger.info("Database initialized successfully")
 
+# load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -42,6 +44,8 @@ async def init_database() -> None:
                 name VARCHAR(255),
                 phone VARCHAR(50),
                 role VARCHAR(50) DEFAULT 'driver',
+                auth_provider VARCHAR(30) DEFAULT 'email',
+                google_sub VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -210,11 +214,16 @@ async def seed_data(conn: asyncpg.Connection) -> None:
     await conn.execute(
         """
         INSERT INTO stations (name, address, latitude, longitude, operator_name, amenities, status) VALUES
-        ('Downtown EV Hub', '123 Main St, Downtown', 40.7128, -74.0060, 'ChargePoint', ARRAY['WiFi', 'Restroom', 'Coffee'], 'active'),
-        ('Mall Charging Station', '456 Shopping Blvd', 40.7580, -73.9855, 'Tesla', ARRAY['Shopping', 'Food Court'], 'active'),
-        ('Airport Quick Charge', '789 Airport Rd', 40.6413, -73.7781, 'Electrify America', ARRAY['Restroom', 'Vending'], 'active'),
-        ('Highway Rest Stop', '321 Interstate Dr', 40.8448, -74.0724, 'EVgo', ARRAY['Restroom', 'Food', 'Gas'], 'active'),
-        ('Tech Park Station', '555 Innovation Way', 40.7484, -73.9857, 'ChargePoint', ARRAY['WiFi', 'Security'], 'active');
+        ('Jangareddy Gudem EV Hub', 'Main Road, Near Bus Stand, Jangareddy Gudem, West Godavari, Andhra Pradesh', 17.1200, 81.3000, 'ChargePoint', ARRAY['WiFi', 'Restroom', 'Coffee', 'Parking', 'Accessibility'], 'active'),
+        ('Vizag Beach Charging Station', 'Beach Road, Opposite Kali Temple, Visakhapatnam, Andhra Pradesh', 17.7266, 83.3068, 'Tesla', ARRAY['Shopping', 'Food Court', 'Parking', 'Sea View'], 'active'),
+        ('Vizag Airport Quick Charge', 'Airport Road, Near Vizag International Airport, Visakhapatnam, Andhra Pradesh', 17.7210, 83.2247, 'Electrify America', ARRAY['Restroom', 'Vending', 'Parking', 'Security'], 'active'),
+        ('Hyderabad Fast Charge', 'Gachibowli, Near Outer Ring Road, Hyderabad, Telangana', 17.4401, 78.3489, 'EVgo', ARRAY['Restroom', 'Food', 'Gas', 'Parking', 'Lounge'], 'active'),
+        ('Hyderabad Tech Park Station', 'HITEC City, Near Cyber Towers, Hyderabad, Telangana', 17.4474, 78.3717, 'ChargePoint', ARRAY['WiFi', 'Security', 'Parking', 'Cafe'], 'active'),
+        ('Bengaluru Highway Charge', 'Electronic City, Near NICE Road, Bengaluru, Karnataka', 12.8456, 77.6603, 'Ather Grid', ARRAY['WiFi', 'Restroom', 'Parking', 'Cafe'], 'active'),
+        ('Chennai Metro Charge', 'Anna Nagar, Near 100 Feet Road, Chennai, Tamil Nadu', 13.0848, 80.2093, 'ChargePoint', ARRAY['Restroom', 'Parking', 'Security', 'Shopping'], 'active'),
+        ('Pune IT Park Station', 'Hinjawadi, Near Phase 2, Pune, Maharashtra', 18.5972, 73.7167, 'EVgo', ARRAY['WiFi', 'Coffee', 'Parking', 'Accessibility'], 'active'),
+        ('Kolkata Downtown Charge', 'Salt Lake, Near Sector V, Kolkata, West Bengal', 22.5769, 88.4332, 'Tesla', ARRAY['Restroom', 'Parking', 'Food Court', 'Security'], 'active'),
+        ('Jaipur City Station', 'Malviya Nagar, Near 200 Feet Road, Jaipur, Rajasthan', 26.8500, 75.8000, 'Electrify America', ARRAY['WiFi', 'Cafe', 'Parking', 'Restroom'], 'active');
         """
     )
 

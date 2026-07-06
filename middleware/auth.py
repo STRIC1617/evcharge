@@ -127,9 +127,13 @@ async def revoke_refresh_token(user_id: int, refresh_token: str) -> None:
         )
 
 
+from jose import JWTError, ExpiredSignatureError
+
 def _decode_access_token(token: str) -> Dict[str, Any]:
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except ExpiredSignatureError as e:
+        raise HTTPException(status_code=401, detail="Token expired") from e
     except JWTError as e:
         raise HTTPException(status_code=401, detail="Invalid token") from e
 
@@ -141,12 +145,13 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Missing authorization token")
 
     payload = _decode_access_token(creds.credentials)
+    print(payload)
     user_id = int(payload.get("sub"))
 
     pool = await get_pool()
     async with pool.acquire() as conn:
         user_row = await conn.fetchrow(
-            "SELECT id, email, name, phone, role, created_at FROM users WHERE id = $1",
+            """SELECT id, email, name, phone, role, auth_provider, google_sub, created_at FROM users WHERE id = $1""",
             user_id,
         )
         if not user_row:

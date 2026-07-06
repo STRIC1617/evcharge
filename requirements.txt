@@ -8,4 +8,6 @@ python-jose[cryptography]
 pydantic
 asyncpg
 email-validator
+google-auth
+requests
 bcrypt==4.0.1

@@ -5,10 +5,15 @@ from typing import Optional
 from config.database import get_pool
 
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv() # Load environment variables from .env file
-print("JWT_SECRET length:", len(os.getenv("JWT_SECRET", "")))
+# load_dotenv() # Load environment variables from .env file
+# print("JWT_SECRET length:", len(os.getenv("JWT_SECRET", "")))
+
+import secrets
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
 from middleware.auth import (
     get_password_hash,
     verify_password,
@@ -27,6 +32,9 @@ class RegisterRequest(BaseModel):
     password: str
     name: Optional[str] = None
     phone: Optional[str] = None
+
+class GoogleLoginRequest(BaseModel):
+    credential: str
 
 
 class LoginRequest(BaseModel):
@@ -53,14 +61,15 @@ async def register(request: RegisterRequest):
         password_hash = get_password_hash(request.password)
         row = await conn.fetchrow(
             """
-            INSERT INTO users (email, password_hash, name, phone)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, email, name, phone, role, created_at
+            INSERT INTO users (email, password_hash, name, phone, auth_provider)
+            VALUES ($1, $2, $3, $4, 'email')
+            RETURNING id, email, name, phone, role, auth_provider, created_at
             """,
             request.email,
             password_hash,
             request.name,
             request.phone,
+            
         )
 
         user = dict(row)
@@ -69,6 +78,104 @@ async def register(request: RegisterRequest):
     refresh_token = await issue_refresh_token(user["id"])
     return {"user": user, "token": access_token, "refresh_token": refresh_token}
 
+
+@router.post("/google")
+async def google_login(request: GoogleLoginRequest):
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+
+    if not google_client_id:
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_CLIENT_ID is not configured",
+        )
+
+    try:
+        google_user = id_token.verify_oauth2_token(
+            request.credential,
+            google_requests.Request(),
+            google_client_id,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid Google token") from e
+
+    email = google_user.get("email")
+    email_verified = google_user.get("email_verified")
+    name = google_user.get("name") or email
+    google_sub = google_user.get("sub")
+
+    if not email or not email_verified or not google_sub:
+        raise HTTPException(
+            status_code=401,
+            detail="Google account email is not verified",
+        )
+
+    pool = await get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT *
+            FROM users
+            WHERE email = $1
+            """,
+            email,
+        )
+
+        if row:
+            user = dict(row)
+
+            updated = await conn.fetchrow(
+                """
+                UPDATE users
+                SET
+                    name = COALESCE(name, $1),
+                    auth_provider = CASE
+                        WHEN auth_provider = 'email' THEN 'google'
+                        ELSE auth_provider
+                    END,
+                    google_sub = COALESCE(google_sub, $2),
+                    updated_at = NOW()
+                WHERE id = $3
+                RETURNING id, email, name, phone, role, auth_provider, google_sub, created_at
+                """,
+                name,
+                google_sub,
+                user["id"],
+            )
+
+            safe_user = dict(updated)
+        else:
+            random_password = secrets.token_urlsafe(32)
+            password_hash = get_password_hash(random_password)
+
+            created = await conn.fetchrow(
+                """
+                INSERT INTO users (
+                    email,
+                    password_hash,
+                    name,
+                    auth_provider,
+                    google_sub
+                )
+                VALUES ($1, $2, $3, 'google', $4)
+                RETURNING id, email, name, phone, role, auth_provider, google_sub, created_at
+                """,
+                email,
+                password_hash,
+                name,
+                google_sub,
+            )
+
+            safe_user = dict(created)
+
+    access_token = generate_access_token(safe_user)
+    refresh_token = await issue_refresh_token(safe_user["id"])
+
+    return {
+        "user": safe_user,
+        "token": access_token,
+        "refresh_token": refresh_token,
+    }
 
 @router.post("/login")
 async def login(request: LoginRequest):
