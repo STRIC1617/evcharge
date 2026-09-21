@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from config.database import init_database, close_pool
-from routes import auth, users, stations, bookings, sessions, billing, content, admin
+from routes import auth, users, stations, bookings, sessions, billing, content, admin, fleets
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(fleets.router)
 app.include_router(stations.router)
 app.include_router(bookings.router)
 app.include_router(sessions.router)

@@ -11,3 +11,4 @@ email-validator
 google-auth
 requests
 bcrypt==4.0.1
+httpx

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 
-from config.database import get_pool
+from config.database import get_pool, ensure_wallet, get_role_summary
 from middleware.auth import get_current_user
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -35,7 +35,43 @@ class VehicleUpdateRequest(BaseModel):
 
 @router.get("/me")
 async def me(current_user: dict = Depends(get_current_user)):
-    return current_user
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        wallet = await ensure_wallet(conn, current_user["id"])
+
+        pending_summary = await conn.fetchrow(
+            """
+            SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as amount
+            FROM invoices WHERE user_id = $1 AND status = 'pending'
+            """,
+            current_user["id"],
+        )
+        pending_invoices = await conn.fetch(
+            """
+            SELECT id, total_amount, due_date, status, created_at
+            FROM invoices WHERE user_id = $1 AND status = 'pending'
+            ORDER BY due_date NULLS LAST, created_at DESC
+            """,
+            current_user["id"],
+        )
+
+        # Only fleets this user was explicitly added to; empty for an ordinary driver.
+        role_summary = await get_role_summary(conn, current_user["id"], current_user.get("role", "driver"))
+
+    return {
+        **current_user,
+        **role_summary,
+        "wallet": {
+            "balance": float(wallet["balance"]),
+            "currency": wallet["currency"],
+        },
+        "pending_payment": {
+            "has_pending": pending_summary["count"] > 0,
+            "count": pending_summary["count"],
+            "amount": float(pending_summary["amount"]),
+            "invoices": [dict(r) for r in pending_invoices],
+        },
+    }
 
 
 @router.patch("/profile")

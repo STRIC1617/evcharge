@@ -1,15 +1,32 @@
 # EV Charge API
 
-A FastAPI-based backend for an EV charging application. It provides authentication, user management, station discovery, bookings, charging sessions, billing, and admin content management.
+A FastAPI-based backend for an EV charging application. It provides authentication, user management, station discovery, bookings, charging sessions, billing, and admin content management. **Now with enterprise-grade fleet management support!**
 
 ## Project structure
 
 - main.py: FastAPI application entry point
-- routes/: API route modules
+- routes/: API route modules (users, fleets, stations, bookings, sessions, billing, content, admin)
 - middleware/: authentication and authorization helpers
 - config/database.py: PostgreSQL connection setup, table creation, and seed data
 
-## Prerequisites
+## Features
+
+### Individual Users
+- User registration and authentication (email/Google OAuth)
+- Personal vehicle management
+- Station discovery and search
+- Booking and charging sessions
+- Personal billing and invoices
+
+### Fleet Management (NEW!)
+- Create and manage fleets (organizations)
+- Role-based member management (Admin, Manager, Driver)
+- Shared vehicle fleet pools
+- Support for both fleet-owned and user-contributed vehicles
+- Fleet-level consolidated billing
+- Fleet analytics and reporting
+
+See [FLEET_MANAGEMENT.md](./FLEET_MANAGEMENT.md) for detailed fleet features and API documentation.
 
 Install the following before running the project:
 
@@ -56,6 +73,13 @@ ACCESS_TOKEN_MINUTES=60
 REFRESH_TOKEN_DAYS=30
 CORS_ORIGINS=*
 MAPPLS_API_KEY=
+PHONEPE_MERCHANT_ID=
+PHONEPE_SALT_KEY=
+PHONEPE_SALT_INDEX=1
+PHONEPE_ENV=sandbox
+PHONEPE_REDIRECT_URL=http://127.0.0.1:8000/api/billing/callback/phonepe
+PHONEPE_CALLBACK_URL=http://127.0.0.1:8000/api/billing/webhook/phonepe
+PHONEPE_APP_REDIRECT_URL=
 ```
 
 Important notes:
@@ -63,6 +87,13 @@ Important notes:
 - JWT_SECRET is required and must be a long, random, stable string.
 - If you change the database credentials, update DATABASE_URL accordingly.
 - MAPPLS_API_KEY is optional and only needed if you use the map integration endpoint.
+- PHONEPE_MERCHANT_ID and PHONEPE_SALT_KEY are required to create payments and accept card/UPI/netbanking (wallet top-ups and invoice payments). Get sandbox credentials from the [PhonePe Business Dashboard](https://business.phonepe.com/).
+- PHONEPE_SALT_INDEX defaults to 1; use the value assigned to your salt key.
+- PHONEPE_ENV is sandbox for testing and production for live payments.
+- PHONEPE_REDIRECT_URL is the backend URL PhonePe redirects the user's browser to after checkout (GET /api/billing/callback/phonepe); it verifies status and then redirects to PHONEPE_APP_REDIRECT_URL.
+- PHONEPE_CALLBACK_URL is the backend URL PhonePe calls server-to-server to confirm payment status (POST /api/billing/webhook/phonepe). Both URLs must be publicly reachable (not localhost) in production.
+- PHONEPE_APP_REDIRECT_URL is your frontend page where the user lands after payment, e.g. https://yourapp.com/payment-result.
+- If PHONEPE_MERCHANT_ID/PHONEPE_SALT_KEY are left blank and PHONEPE_ENV is not `production`, the invoice/wallet order endpoints skip PhonePe and credit the payment directly, so local development works without gateway credentials.
 
 ## 5. Start PostgreSQL
 

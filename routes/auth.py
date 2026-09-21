@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
-from config.database import get_pool
+from config.database import get_pool, ensure_wallet, get_role_summary
 
 import os
 # from dotenv import load_dotenv
@@ -73,6 +73,8 @@ async def register(request: RegisterRequest):
         )
 
         user = dict(row)
+        await ensure_wallet(conn, user["id"])
+        user.update(await get_role_summary(conn, user["id"], user.get("role", "driver")))
 
     access_token = generate_access_token(user)
     refresh_token = await issue_refresh_token(user["id"])
@@ -167,6 +169,9 @@ async def google_login(request: GoogleLoginRequest):
             )
 
             safe_user = dict(created)
+            await ensure_wallet(conn, safe_user["id"])
+
+        safe_user.update(await get_role_summary(conn, safe_user["id"], safe_user.get("role", "driver")))
 
     access_token = generate_access_token(safe_user)
     refresh_token = await issue_refresh_token(safe_user["id"])
@@ -197,6 +202,7 @@ async def login(request: LoginRequest):
             "role": user.get("role", "driver"),
             "created_at": user.get("created_at"),
         }
+        safe_user.update(await get_role_summary(conn, user["id"], safe_user["role"]))
 
     access_token = generate_access_token(safe_user)
     refresh_token = await issue_refresh_token(safe_user["id"])
@@ -219,4 +225,7 @@ async def logout(request: LogoutRequest, current_user: dict = Depends(get_curren
 
 @router.get("/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
-    return current_user
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        role_summary = await get_role_summary(conn, current_user["id"], current_user.get("role", "driver"))
+    return {**current_user, **role_summary}
